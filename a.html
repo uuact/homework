@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>信息安全连连看</title>
+    <style>
+        body {
+            font-family: '微软雅黑', Arial, sans-serif;
+            background: #f0f4f7;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 20px;
+            flex-wrap: wrap;
+        }
+        .column {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 15px;
+            width: 450px;
+        }
+        .card {
+            background: white;
+            border: 2px solid #d1d8e0;
+            border-radius: 10px;
+            padding: 20px;
+            min-height: 120px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            text-align: center;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .selected {
+            background: #e8f4fc !important;
+            border-color: #5aa3e8;
+            box-shadow: 0 0 10px rgba(90,163,232,0.2);
+        }
+        .wrong {
+            animation: shake 0.5s;
+            background: #ffe6e6 !important;
+        }
+        #score {
+            font-size: 24px;
+            text-align: center;
+            padding: 20px;
+            color: #2c3e50;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #result {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border: 2px solid #333;
+            text-align: center;
+        }
+        .star-rating {
+            font-size: 24px;
+            color: #f1c40f;
+            margin: 15px 0;
+        }
+        button {
+            background: #5aa3e8;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #4087c4;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(8px); }
+            50% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+            100% { transform: translateX(0); }
+        }
+        @media (max-width: 768px) {
+            .column { width: 90%; }
+            .card { min-height: 100px; padding: 15px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="score">得分：0</div>
+    <div class="container">
+        <div class="column" id="leftColumn"></div>
+        <div class="column" id="rightColumn"></div>
+    </div>
+    <div id="result"></div>
+
+    <script>
+        // 安全情景配置
+        const pairConfig = [
+            { left: '员工使用简单密码如123456', right: '启用强密码策略（大小写字母+数字+特殊字符）' },
+            { left: '收到可疑钓鱼邮件要求输入账号密码', right: '不点击链接，立即报告信息安全部门' },
+            { left: '同事索要系统账号代为操作', right: '拒绝共享账户，坚持权限分离原则' },
+            { left: '在咖啡店用公共WiFi登录公司系统', right: '使用VPN连接内部网络后再操作' },
+            { left: '发现U盘来历不明却直接插入电脑', right: '使用专用沙箱环境检测外部存储设备' },
+            { left: '为图方便将机密文件上传至网盘', right: '使用企业加密云存储传输敏感数据' },
+            { left: '系统弹出补丁更新提示直接关闭', right: '立即安装安全补丁并重启系统' },
+            { left: '离职员工未归还门禁卡', right: '72小时内注销离职人员所有权限' }
+        ];
+
+        // 专业洗牌函数
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        let gameData = {
+            score: 0,
+            startTime: null,
+            correctPairs: 0,
+            wrongAttempts: 0,
+            selectedCards: []
+        };
+
+        function initGame() {
+            gameData = {
+                score: 0,
+                startTime: new Date(),
+                correctPairs: 0,
+                wrongAttempts: 0,
+                selectedCards: []
+            };
+
+            const left = document.getElementById('leftColumn');
+            const right = document.getElementById('rightColumn');
+            left.innerHTML = '';
+            right.innerHTML = '';
+
+            // 独立生成左右列数据
+            const leftPairs = shuffleArray([...pairConfig]);
+            const rightPairs = shuffleArray([...pairConfig]);
+
+            // 生成左列卡片
+            leftPairs.forEach((pair, index) => {
+                left.appendChild(createCard(pair.left, index, 'left', pair));
+            });
+
+            // 生成右列卡片（独立洗牌）
+            rightPairs.forEach((pair, index) => {
+                right.appendChild(createCard(pair.right, index+8, 'right', pair));
+            });
+
+            updateScore();
+        }
+
+        function createCard(value, index, side, pair) {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.dataset.value = value;
+            card.dataset.index = index;
+            card.dataset.side = side;
+            card.dataset.pairId = pairConfig.indexOf(pair);
+            card.textContent = value;
+            card.onclick = handleClick;
+            return card;
+        }
+
+        function handleClick() {
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                gameData.selectedCards = gameData.selectedCards.filter(c => c !== this);
+                return;
+            }
+
+            if (gameData.selectedCards.length === 1 && 
+                gameData.selectedCards[0].dataset.side === this.dataset.side) {
+                return;
+            }
+
+            this.classList.add('selected');
+            gameData.selectedCards.push(this);
+
+            if (gameData.selectedCards.length === 2) {
+                setTimeout(checkMatch, 500);
+            }
+        }
+
+        function checkMatch() {
+            const [card1, card2] = gameData.selectedCards;
+            const isCorrect = card1.dataset.pairId === card2.dataset.pairId && 
+                             card1.dataset.side !== card2.dataset.side;
+
+            if (isCorrect) {
+                gameData.score += 10;
+                gameData.correctPairs++;
+                card1.style.opacity = '0.3';
+                card2.style.opacity = '0.3';
+                card1.style.pointerEvents = 'none';
+                card2.style.pointerEvents = 'none';
+            } else {
+                gameData.score = Math.max(0, gameData.score - 5);
+                gameData.wrongAttempts++;
+                card1.classList.add('wrong');
+                card2.classList.add('wrong');
+                setTimeout(() => {
+                    card1.classList.remove('wrong');
+                    card2.classList.remove('wrong');
+                }, 500);
+            }
+
+            gameData.selectedCards.forEach(c => c.classList.remove('selected'));
+            gameData.selectedCards = [];
+            updateScore();
+            checkGameEnd();
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = `得分：${gameData.score}`;
+        }
+
+        function checkGameEnd() {
+            const remaining = document.querySelectorAll('.card:not([style*="opacity: 0.3"])');
+            if (remaining.length === 0) showResult();
+        }
+
+        function showResult() {
+            const timeUsed = Math.round((new Date() - gameData.startTime) / 1000);
+            const totalAttempts = gameData.correctPairs + gameData.wrongAttempts;
+            const accuracy = totalAttempts ? Math.round((gameData.correctPairs / totalAttempts) * 100) : 0;
+
+            document.getElementById('result').innerHTML = `
+                <h2>测试完成！</h2>
+                <p>最终得分：<span>${gameData.score}</span>分</p>
+                <p>用时：${timeUsed}秒</p>
+                <div class="star-rating">${calculateStars(gameData.score)}</div>
+                <button onclick="restart()">再玩一次</button>
+            `;
+            document.getElementById('result').style.display = 'block';
+        }
+
+        function calculateStars(score) {
+            const stars = Math.min(5, Math.floor(score / 20));
+            return '★'.repeat(stars) + '☆'.repeat(5 - stars);
+        }
+
+        function restart() {
+            document.getElementById('result').style.display = 'none';
+            initGame();
+        }
+
+        // 初始化游戏
+        initGame();
+    </script>
+</body>
+</html>
